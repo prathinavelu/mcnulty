@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+  font: 13px sans-serif;
+  margin: 0;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.line {
+  fill: none;
+  stroke: lightblue;
+  stroke-width: 1.5px;
+}
+
+.area {
+  fill: lightblue;
+}
+
+</style>
+<body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+
+var margin = {top: 15, right: 10, bottom: 2, left: 55},
+    width = 500 - margin.left - margin.right,
+    height = 200 - margin.top - margin.bottom;
+
+
+var x = d3.scale.linear()
+    .range([0, width]);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+
+var area = d3.svg.area()
+    .x(function(d) { return x(d.hrs); })
+    .y0(height)
+    .y1(function(d) { return y(d.mean); });
+
+var line = d3.svg.line()
+    .x(function(d) { return x(d.hrs); })
+    .y(function(d) { return y(d.mean); });
+
+d3.csv("sm_sleepdata.csv", type, function(error, data) {
+
+  // Nest data by field.
+  var fields = d3.nest()
+      .key(function(d) { return d.field; })
+      .entries(data);
+      
+  //console.log("test", fields)
+
+  // Compute the maximum val per field, needed for the y-domain.
+  fields.forEach(function(s) {
+    s.minval = d3.min(s.values, function(d) { return d.mean; });
+    s.maxval = d3.max(s.values, function(d) { return d.mean; });
+  });
+
+  // Compute the minimum and maximum hrs across fields.
+  // We assume values are sorted by hrs.
+  x.domain([
+    d3.min(fields, function(s) { return s.values[0].hrs; }),
+    d3.max(fields, function(s) { return s.values[s.values.length - 1].hrs; })
+  ]);
+
+  // Add an SVG element for each field, with the desired dimensions and margin.
+  var svg = d3.select("body").selectAll("svg")
+      .data(fields)
+    .enter().append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform", function(d, i) {return "translate(" + margin.left + "," + margin.top + ")";});
+    
+      //.attr("transform", "translate(" + 50 + "," + 50 + ")");
+
+  // Add the area path elements. Note: the y-domain is set per element.
+  areas = svg.append("path")
+      .attr("class", "area")
+      .attr("d", function(d) { y.domain([d.minval,d.maxval]); return area(d.values); })
+
+  paths = svg.append("path")
+      .attr("class", "line")
+      .attr("d", function(d) { y.domain([d.minval, d.maxval]); return line(d.values); })
+      
+  labels = svg.append("text")
+      .attr("x", width - 6)
+      .attr("y", height - 6)
+      .style("text-anchor", "end")
+      .text(function(d) { return d.key; })
+
+  yaxes = svg.append("g")
+      .attr("class", "y axis")
+      .each(function(d){ y.domain([d.minval,d.maxval]); 
+                         var smyaxis = d3.svg.axis().scale(y).orient("left"); 
+                         smyaxis(d3.select(this));  
+      })
+      
+
+});
+
+function type(d) {
+  d.val = +d.val;
+  d.hrs = d.hrs;
+  return d;
+}
+
+</script>
